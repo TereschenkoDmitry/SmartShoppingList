@@ -12,7 +12,8 @@ import {
   Package,
   Send,
   Edit2,
-  Check
+  Check,
+  Share2
 } from 'lucide-react';
 import { ShoppingItem, PurchaseRecord, Suggestion, ViewMode, ParsedReceipt } from './types';
 import { parseReceiptImage, getSmartSuggestions } from './services/geminiService';
@@ -119,14 +120,32 @@ const App: React.FC = () => {
     if (tg) tg.HapticFeedback.impactOccurred('medium');
   };
 
-  const sendListToChat = () => {
-    if (items.length === 0) return;
-    const text = "🛒 Список покупок:\n" + items.map(i => `• ${i.name} (${i.quantity})`).join('\n');
+  const getFormattedList = () => {
+    if (items.length === 0) return "";
+    return "🛒 Мой список покупок:\n\n" + items.map(i => `• ${i.name} — ${i.quantity} шт.`).join('\n') + "\n\nСоздано в Smart Shopping Bot";
+  };
+
+  const sendListToBot = () => {
+    const text = getFormattedList();
+    if (!text) return;
     if (tg) {
       tg.sendData(text);
-      tg.close();
     } else {
       alert(text);
+    }
+  };
+
+  const shareToAnyContact = () => {
+    const text = getFormattedList();
+    if (!text) {
+      if (tg) tg.showAlert("Список пуст!");
+      return;
+    }
+    const shareUrl = `https://t.me/share/url?url=&text=${encodeURIComponent(text)}`;
+    if (tg) {
+      tg.openTelegramLink(shareUrl);
+    } else {
+      window.open(shareUrl, '_blank');
     }
   };
 
@@ -140,7 +159,7 @@ const App: React.FC = () => {
         const base64 = (reader.result as string).split(',')[1];
         const result: ParsedReceipt = await parseReceiptImage(base64);
         result.items.forEach(item => {
-          addItem(item.name, item.quantity);
+          addItem(item.name, item.quantity.toString());
           setHistory(h => [{
             id: Math.random().toString(),
             name: item.name,
@@ -187,11 +206,14 @@ const App: React.FC = () => {
           </h1>
           <p className="text-[10px] uppercase font-bold opacity-40">AI Shopping Assistant</p>
         </div>
-        <div className="flex gap-2">
-           <button onClick={sendListToChat} className="p-2 opacity-60 hover:opacity-100 transition-opacity">
+        <div className="flex gap-1">
+           <button onClick={shareToAnyContact} className="p-2 opacity-60 hover:opacity-100 transition-opacity" title="Отправить контакту">
+            <Share2 className="w-5 h-5" />
+          </button>
+           <button onClick={sendListToBot} className="p-2 opacity-60 hover:opacity-100 transition-opacity" title="Отправить в чат бота">
             <Send className="w-5 h-5" />
           </button>
-          <button onClick={() => setView(ViewMode.SCAN)} className="p-2 rounded-full transition-all active:scale-90" style={{ backgroundColor: 'var(--tg-primary)', color: 'white' }}>
+          <button onClick={() => setView(ViewMode.SCAN)} className="p-2 ml-1 rounded-full transition-all active:scale-90" style={{ backgroundColor: 'var(--tg-primary)', color: 'white' }}>
             <Camera className="w-5 h-5" />
           </button>
         </div>
@@ -216,7 +238,7 @@ const App: React.FC = () => {
                 onChange={(e) => setNewItemName(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && addItem(newItemName)}
                 placeholder="Что купить?"
-                className="flex-1 p-3 rounded-2xl border-none shadow-sm text-sm focus:ring-2 focus:ring-indigo-500"
+                className="flex-1 p-3 rounded-2xl border-none shadow-sm text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                 style={{ backgroundColor: 'var(--tg-secondary)', color: 'var(--tg-text)' }}
               />
               <button onClick={() => addItem(newItemName)} className="p-3 rounded-2xl shadow-md transition-all active:scale-95" style={{ backgroundColor: 'var(--tg-primary)', color: 'white' }}>
@@ -271,15 +293,19 @@ const App: React.FC = () => {
         {view === ViewMode.HISTORY && (
           <div className="space-y-3">
             <h2 className="text-sm font-black uppercase opacity-40 mb-2">История покупок</h2>
-            {history.map(record => (
-              <div key={record.id} className="p-4 rounded-2xl flex justify-between items-center" style={{ backgroundColor: 'var(--tg-secondary)' }}>
-                <div className="min-w-0">
-                  <p className="font-bold text-sm truncate">{record.name}</p>
-                  <p className="text-[10px] opacity-40">{new Date(record.date).toLocaleDateString()}</p>
+            {history.length === 0 ? (
+              <p className="text-center py-10 opacity-30 text-xs">История пока пуста</p>
+            ) : (
+              history.map(record => (
+                <div key={record.id} className="p-4 rounded-2xl flex justify-between items-center" style={{ backgroundColor: 'var(--tg-secondary)' }}>
+                  <div className="min-w-0">
+                    <p className="font-bold text-sm truncate">{record.name}</p>
+                    <p className="text-[10px] opacity-40">{new Date(record.date).toLocaleDateString()}</p>
+                  </div>
+                  {record.price && <span className="font-black text-xs px-2 py-1 rounded-lg bg-indigo-50 text-indigo-600">{record.price} ₽</span>}
                 </div>
-                {record.price && <span className="font-black text-xs px-2 py-1 rounded-lg bg-indigo-50 text-indigo-600">{record.price} ₽</span>}
-              </div>
-            ))}
+              ))
+            )}
           </div>
         )}
 
