@@ -1,0 +1,7 @@
+{
+  "name": "Smart Shopping Bot",
+  "description": "An intelligent shopping list manager with AI-powered purchase predictions and receipt OCR parsing.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
